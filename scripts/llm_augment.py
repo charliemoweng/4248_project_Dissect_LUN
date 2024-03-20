@@ -19,6 +19,8 @@ import requests
 import pandas as pd
 from tqdm import tqdm
 import argparse
+import threading
+
 
 '''
 Current Class counts are:
@@ -82,7 +84,7 @@ def augment(runid, split_dataset, no_of_hoax_to_generate_per_person, no_of_relia
         # randomly select row
         row = hoax_dataset.sample(n=1)
 
-        label = row["Label"].iloc[0]
+        label = class_to_label_mapper[row["Label"].iloc[0]]
         text = row["Text"].iloc[0]
 
         result = ping_llm(label, text)
@@ -126,41 +128,29 @@ def augment(runid, split_dataset, no_of_hoax_to_generate_per_person, no_of_relia
 
     print(f'Saved {runid}_train_aug.csv')
 
-
 def ping_llm(label, text):
-    prompt = """
-    Context: I am trying to perform data augmentation on 4-way text classification of the LUN Dataset which has the following class labels: 1-Satire, 2-Hoax, 3-Propaganda, 4-Reliable News.
-    Description: I will give you example sentences where each sentence is enclosed by a special token {SOS} along with the original class label enclosed in {CL}.
-    
-    For each example sentence do the following:
-    1. Paraphrased text with loosing any meaning while still being in the style as the class label mentioned. Lets call it "paraphrased".
-    2. Also produce a justification (using your knowledge of grammar and human psychology) for why the original text was in that style/class label. Call it "original_justification"
-    3. Do the same justification for why the paraphrased text you generated in #1 is in the same style as well. Call it "paraphrased_justification".
-    
-    Produce your answer for each example in this format exactly:
-    {example_number}|{paraphrased}|{original_justification}|{paraphrased_justification}<EOA>
-    
-    I plan to use "|" and "<EOA>" tokens you generate to help me parse your answer.
-    
-    Paraphrase the following:
-    """
-    # try:
-    #
-    #     example = "{SOS}The writers of the HBO series The Sopranos took another daring storytelling step by killing off 10 million fans during the seventh season's premiere episode Sunday night. 'This was definitely a bold choice, one that producers of the show would have never thought of making five years ago,' said New York Times television critic Virginia Heffernan, who noted that the move was hinted at in a season-five episode in which Tony dreamt he was riding a horse through his house. 'But now that I look back, this was strongly foreshadowed throughout all of last season.' Industry insiders predicted that the show's producers would try to bring at least some fans back for the series finale, which may come as early as May. {SOS}|{CL}Satire{CL}"
-    #
-    #     url = "https://iiced-mixtral-46-7b-fastapi.hf.space/generate/"
-    #     data = {
-    #         "prompt": prompt + example,
-    #         "history": [],
-    #         "system_prompt": "You are expected to help in augmenting a text based dataset for 4-way text classification"
-    #     }
-    #     headers = {'Content-Type': 'application/json'}
-    #
-    #     response = requests.post(url, data=json.dumps(data), headers=headers)
-    #     return response.json()
-    # except Exception as e:
-    #     print(f"Failed with exception {e}")
-    #     return
+    try:
+        system_prompt = """
+        I am trying to perform data augmentation on 4-way text classification of the LUN Dataset which has the following class labels: Satire, Hoax, Propaganda, Reliable News. 
+        In the prompt, you will be given both the text along with the class label. I want you to paraphrase the original text without loosing any meaning in the same style as the original class label. 
+        In the prompt; the class label will be provided first, followed by a separator token ':' and finally followed by the original text.
+        In your response make sure to return only the paraphrased text while being in the same style
+        """
+        prompt = f"{label}:{text}"
+
+        data = {
+            "prompt": prompt,
+            "history": [],
+            "system_prompt": system_prompt
+        }
+        url = "https://iiced-mixtral-46-7b-fastapi.hf.space/generate/"
+        headers = {'Content-Type': 'application/json'}
+
+        response = requests.post(url, data=json.dumps(data), headers=headers)
+        return response.json()
+    except Exception as e:
+        print(f"Failed with exception {e}")
+        return
 
     return "Test"
 
