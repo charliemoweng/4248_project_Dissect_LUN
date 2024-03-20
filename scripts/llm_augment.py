@@ -88,10 +88,12 @@ def augment(runid, split_dataset, no_of_hoax_to_generate_per_person, no_of_relia
         text = row["Text"].iloc[0]
 
         result = ping_llm(label, text)
-        hoax_generations.append(result)
 
-        # update progress bar
-        hoax_bar.update(1)
+        if result != None:
+            hoax_generations.append(result)
+
+            # update progress bar
+            hoax_bar.update(1)
 
     hoax_bar.close()
 
@@ -147,12 +149,11 @@ def ping_llm(label, text):
         headers = {'Content-Type': 'application/json'}
 
         response = requests.post(url, data=json.dumps(data), headers=headers)
-        return response.json()
+        result = response.json()["response"]
+        return result
     except Exception as e:
-        print(f"Failed with exception {e}")
-        return
-
-    return "Test"
+        print(f"Failed with exception {e}. But just continuing..")
+        return None
 
 
 if __name__ == '__main__':
