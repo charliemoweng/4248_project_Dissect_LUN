@@ -136,7 +136,7 @@ def ping_llm(label, text):
         I am trying to perform data augmentation on 4-way text classification of the LUN Dataset which has the following class labels: Satire, Hoax, Propaganda, Reliable News. 
         In the prompt, you will be given both the text along with the class label. I want you to paraphrase the original text without loosing any meaning in the same style as the original class label. 
         In the prompt; the class label will be provided first, followed by a separator token ':' and finally followed by the original text.
-        In your response make sure to return only the paraphrased text while being in the same style
+        In your response make sure to return only the paraphrased text as mentioned earlier, i.e. output should not contain the class label.
         """
         prompt = f"{label}:{text}"
 
@@ -169,6 +169,11 @@ if __name__ == '__main__':
         print("Split datasets already available")
 
     label_counts = dataset["Label"].value_counts()
+
+
+    # Try uncommenting this to run it and check the outputs
+    # no_of_hoax_to_generate_per_person = 4
+    # no_of_reliable_to_generate_per_person = 4
 
     no_of_hoax_to_generate_per_person = (label_counts[label_to_class_mapper["Satire"]] - label_counts[
         label_to_class_mapper["Hoax"]]) // 6
