@@ -69,7 +69,65 @@ def split_dataset(dataset):
 
         print(f'Saved {i + 1}_train.csv')
 
-def ping_llm():
+
+def augment(runid, split_dataset, no_of_hoax_to_generate_per_person, no_of_reliable_to_generate_per_person,
+            hoax_generations,
+            reliable_generations):
+    hoax_dataset = split_dataset[split_dataset["Label"] == label_to_class_mapper["Hoax"]]
+    reliable_dataset = split_dataset[split_dataset["Label"] == label_to_class_mapper["Reliable News"]]
+
+    print(f"Generating {no_of_hoax_to_generate_per_person} paraphrased hoax sentences..")
+    hoax_bar = tqdm(total=no_of_hoax_to_generate_per_person)
+    while len(hoax_generations) < no_of_hoax_to_generate_per_person:
+        # randomly select row
+        row = hoax_dataset.sample(n=1)
+
+        label = row["Label"].iloc[0]
+        text = row["Text"].iloc[0]
+
+        result = ping_llm(label, text)
+        hoax_generations.append(result)
+
+        # update progress bar
+        hoax_bar.update(1)
+
+    hoax_bar.close()
+
+    print(f"Generating {no_of_reliable_to_generate_per_person} reliable paraphrased sentences..")
+    reliable_bar = tqdm(total=no_of_reliable_to_generate_per_person)
+    while len(reliable_generations) < no_of_reliable_to_generate_per_person:
+        # randomly select row
+        row = reliable_dataset.sample(n=1)
+
+        label = row["Label"].iloc[0]
+        text = row["Text"].iloc[0]
+
+        result = ping_llm(label, text)
+        reliable_generations.append(result)
+
+        # update progress bar
+        reliable_bar.update(1)
+
+    reliable_bar.close()
+
+    print(f"Creating the new augmented dataset")
+    hoax_generations_dataset = pd.DataFrame({
+        "Label": [label_to_class_mapper["Hoax"]] * len(hoax_generations),
+        "Text": hoax_generations
+    })
+    reliable_generations_dataset = pd.DataFrame({
+        "Label": [label_to_class_mapper["Reliable News"]] * len(reliable_generations),
+        "Text": reliable_generations
+    })
+    combined_df = pd.concat([split_dataset, hoax_generations_dataset, reliable_generations_dataset])
+
+    # Save the split in the datasets folder
+    combined_df.to_csv(f'../dataset/{runid}_train_aug.csv', index=False)
+
+    print(f'Saved {runid}_train_aug.csv')
+
+
+def ping_llm(label, text):
     prompt = """
     Context: I am trying to perform data augmentation on 4-way text classification of the LUN Dataset which has the following class labels: 1-Satire, 2-Hoax, 3-Propaganda, 4-Reliable News.
     Description: I will give you example sentences where each sentence is enclosed by a special token {SOS} along with the original class label enclosed in {CL}.
@@ -104,7 +162,8 @@ def ping_llm():
     #     print(f"Failed with exception {e}")
     #     return
 
-    return
+    return "Test"
+
 
 if __name__ == '__main__':
     dataset = pd.read_csv("../dataset/fulltrain.csv")
@@ -119,28 +178,25 @@ if __name__ == '__main__':
     no_of_reliable_to_generate_per_person = (label_counts[label_to_class_mapper["Satire"]] - label_counts[
         label_to_class_mapper["Reliable News"]]) // 6
 
-    # Create argument parser
     parser = argparse.ArgumentParser(description="Script with --runid argument")
-
-    # Add the --runid argument
     parser.add_argument('--runid', type=int, choices=range(1, 7), help="Specify a number between 1 and 6")
-
-    # Parse the command line arguments
     args = parser.parse_args()
 
-    # Check if the --runid argument was provided
     if args.runid is None:
         parser.print_help()
         exit(1)
 
-    # Access the value of --runid argument
-    run_id = args.runid
+    runid = args.runid
 
-    print(f"Reading the split dataset ../dataset/{run_id}_train.csv")
-    split_dataset = pd.read_csv(f"../dataset/{run_id}_train.csv")
+    print(f"Reading the split dataset ../dataset/{runid}_train.csv")
+    split_dataset = pd.read_csv(f"../dataset/{runid}_train.csv")
 
-    print(f"Need to generate {no_of_reliable_to_generate_per_person} reliable texts & {no_of_hoax_to_generate_per_person} hoax texts")
+    print(
+        f"Need to generate {no_of_reliable_to_generate_per_person} reliable texts & {no_of_hoax_to_generate_per_person} hoax texts"
+    )
+
     hoax_generations = []
     reliable_generations = []
 
-    #TODO. now write the code to batch it into llm query and try threading as well !
+    augment(runid, split_dataset, no_of_hoax_to_generate_per_person,
+            no_of_reliable_to_generate_per_person, hoax_generations, reliable_generations)
