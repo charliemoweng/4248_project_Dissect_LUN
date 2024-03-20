@@ -20,6 +20,7 @@ import pandas as pd
 from tqdm import tqdm
 import argparse
 import threading
+import os
 
 
 '''
@@ -50,7 +51,6 @@ def split_dataset(dataset):
     :return:
     '''
     num_splits = 6
-    counts = dataset["Label"].value_counts()
 
     # split hoax 6 ways
     hoax = dataset[dataset["Label"] == label_to_class_mapper["Hoax"]]
@@ -158,8 +158,14 @@ def ping_llm(label, text):
 if __name__ == '__main__':
     dataset = pd.read_csv("../dataset/fulltrain.csv")
 
-    # run this in case you still want to split it (it will most likely be the same thing)
-    # split_dataset(dataset)
+    splits = set([f'{i + 1}_train.csv' for i in range(6)])
+    files_in_dataset_folder = set(os.listdir('../dataset'))
+
+    if not splits.issubset(files_in_dataset_folder):
+        print("Splitting dataset 6 ways.. since it didnt not exist before")
+        split_dataset(dataset)
+    else:
+        print("Split datasets already available")
 
     label_counts = dataset["Label"].value_counts()
 
