@@ -1,0 +1,8 @@
+numpy
+scikit-learn
+pytorch
+xgboost
+matplotlib
+scipt
+nltk
+transformers
